@@ -16,6 +16,32 @@ HardwareSerial mavlinkSerial(2);
 #define MAV_RX_PIN 19   // ESP32 RX2
 #define MAV_TX_PIN 18   // ESP32 TX2
 
+void sendObstacleDistances(const uint16_t *dists, uint8_t count) {
+  mavlink_message_t msg;
+  mavlink_obstacle_distance_t od{};
+
+  od.time_usec   = static_cast<uint64_t>(micros());  // em μs, substitui time_boot_ms :contentReference[oaicite:1]{index=1}
+  od.sensor_type = MAV_DISTANCE_SENSOR_LASER;
+  od.frame       = MAV_FRAME_BODY_FRD;              
+  od.increment   = static_cast<uint8_t>(360 / count);
+  od.min_distance = 20;     // mm
+  od.max_distance = 2000;   // mm
+
+  // preenche as leituras
+  for (uint8_t i = 0; i < count; i++) {
+    od.distances[i] = dists[i];
+  }
+  // resto como “não usado”
+  for (uint8_t i = count; i < MAVLINK_MSG_OBSTACLE_DISTANCE_FIELD_DISTANCES_LEN; i++) {
+    od.distances[i] = UINT16_MAX;
+  }
+
+  mavlink_msg_obstacle_distance_encode(1, 0, &msg, &od);
+  uint8_t buf[MAVLINK_MAX_PACKET_LEN];
+  uint16_t len = mavlink_msg_to_send_buffer(buf, &msg);
+  mavlinkSerial.write(buf, len);
+}
+
 void setup() {
   Serial.begin(115200);
   Wire.begin(); // SDA=21, SCL=22 por default no ESP32
@@ -56,28 +82,4 @@ void loop() {
   delay(100); // ~10 Hz
 }
 
-void sendObstacleDistances(const uint16_t *dists, uint8_t count) {
-  mavlink_message_t msg;
-  mavlink_obstacle_distance_t od{};
 
-  od.time_usec   = static_cast<uint64_t>(micros());  // em μs, substitui time_boot_ms :contentReference[oaicite:1]{index=1}
-  od.sensor_type = MAV_DISTANCE_SENSOR_LASER;
-  od.frame       = MAV_FRAME_BODY_FRD;              
-  od.increment   = static_cast<uint8_t>(360 / count);
-  od.min_distance = 20;     // mm
-  od.max_distance = 2000;   // mm
-
-  // preenche as leituras
-  for (uint8_t i = 0; i < count; i++) {
-    od.distances[i] = dists[i];
-  }
-  // resto como “não usado”
-  for (uint8_t i = count; i < MAVLINK_MSG_OBSTACLE_DISTANCE_FIELD_DISTANCES_LEN; i++) {
-    od.distances[i] = UINT16_MAX;
-  }
-
-  mavlink_msg_obstacle_distance_encode(1, 0, &msg, &od);
-  uint8_t buf[MAVLINK_MAX_PACKET_LEN];
-  uint16_t len = mavlink_msg_to_send_buffer(buf, &msg);
-  mavlinkSerial.write(buf, len);
-}
