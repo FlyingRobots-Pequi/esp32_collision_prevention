@@ -5,7 +5,7 @@
 
 // ——— Configuração dos VL53L0X ———
 #define NUM_SENSORS 4
-const uint8_t XSHUT_PINS[NUM_SENSORS]    = {4, 3, 1, 1};
+const uint8_t XSHUT_PINS[NUM_SENSORS]    = {3, 2, 1, 0};
 const uint8_t NEW_I2C_ADDRS[NUM_SENSORS] = {0x30,0x31,0x32,0x33};
 Adafruit_VL53L0X sensors[NUM_SENSORS];
 
@@ -15,6 +15,7 @@ HardwareSerial mavlinkSerial(2);
 #define MAV_BAUD   57600
 #define MAV_RX_PIN 19   // ESP32 RX2
 #define MAV_TX_PIN 18   // ESP32 TX2
+#define RATE_PUBLICATION 10 // em Hz
 
 void sendObstacleDistances(const uint16_t *dists, uint8_t count) {
   mavlink_message_t msg;
@@ -78,8 +79,21 @@ void loop() {
                  ? m.RangeMilliMeter
                  : UINT16_MAX;
   }
+
+  // Print das distâncias no Serial
+  // Serial.print("Distâncias (mm): ");
+  // for (uint8_t i = 0; i < NUM_SENSORS; i++) {
+  //   if (distances[i] == UINT16_MAX) {
+  //     Serial.print("----");
+  //   } else {
+  //     Serial.print(distances[i]);
+  //   }
+  //   Serial.print((i < NUM_SENSORS - 1) ? ", " : "\n");
+  // }
+
   sendObstacleDistances(distances, NUM_SENSORS);
-  delay(100); // ~10 Hz
+  delay(1000/RATE_PUBLICATION); // ~10 Hz
 }
+
 
 
