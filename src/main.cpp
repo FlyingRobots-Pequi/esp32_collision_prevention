@@ -38,11 +38,28 @@ void sendObstacleDistances(const uint16_t *dists, uint8_t count) {
     od.distances[i] = UINT16_MAX;  // marcados como "não utilizados"
   }
 
-  mavlink_msg_obstacle_distance_encode(99, MAV_COMP_ID_OBSTACLE_AVOIDANCE, &msg, &od);
+  mavlink_msg_obstacle_distance_encode(1, MAV_COMP_ID_OBSTACLE_AVOIDANCE, &msg, &od);
   uint8_t buf[MAVLINK_MAX_PACKET_LEN];
   uint16_t len = mavlink_msg_to_send_buffer(buf, &msg);
   mavSerial.write(buf, len);  // Usando Serial (UART0) para enviar MAVLink
   mavSerial.flush();
+}
+
+void sendHeartbeat() {
+  mavlink_message_t msg;
+
+  mavlink_heartbeat_t hb{};
+  hb.type = MAV_TYPE_ONBOARD_CONTROLLER;      // 18
+  hb.autopilot = MAV_AUTOPILOT_INVALID;       // 8
+  hb.base_mode = 0;                           // Sem modo específico
+  hb.custom_mode = 0;
+  hb.system_status = MAV_STATE_ACTIVE;        // 4
+  hb.mavlink_version = 3;                     // MAVLink v2
+
+  mavlink_msg_heartbeat_encode(1, MAV_COMP_ID_OBSTACLE_AVOIDANCE, &msg, &hb);
+  uint8_t buf[MAVLINK_MAX_PACKET_LEN];
+  uint16_t len = mavlink_msg_to_send_buffer(buf, &msg);
+  mavSerial.write(buf, len);
 }
 
 void setup() {
@@ -72,12 +89,17 @@ void setup() {
 
 void loop() {
   uint16_t distances[NUM_SENSORS];
+
+  static unsigned long lastHeartbeat = 0;
+  if (millis() - lastHeartbeat >= 1000) {  // Envia a cada 1 segundo
+    sendHeartbeat();
+    lastHeartbeat = millis();
+  }
+
   for (uint8_t i = 0; i < NUM_SENSORS; i++) {
     VL53L0X_RangingMeasurementData_t m;
     sensors[i].rangingTest(&m, false);
-    distances[i] = (m.RangeStatus != 4)
-                 ? m.RangeMilliMeter
-                 : UINT16_MAX;
+    distances[i] = (m.RangeStatus != 4) ? m.RangeMilliMeter/10 : UINT16_MAX;
   }
 
   // Print das distâncias no Serial
